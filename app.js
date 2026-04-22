@@ -65,9 +65,63 @@ function initDashboard() {
   document.querySelectorAll('[data-jump]').forEach(a => {
     a.addEventListener('click', e => { e.preventDefault(); switchTab(a.dataset.jump); });
   });
+  initChannelTabs();
+  initFilters();
   initCheckboxes();
   const showBtn = document.getElementById('show-completed');
   if (showBtn) showBtn.addEventListener('click', toggleCompleted);
+}
+function initChannelTabs() {
+  // Channel tabs (call/text/email) within each lead card
+  document.querySelectorAll('.lead-card').forEach(card => {
+    const tabs = card.querySelectorAll('.ch-tab');
+    const panes = card.querySelectorAll('.ch-pane');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panes.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const target = card.querySelector('.ch-pane[data-ch="' + tab.dataset.ch + '"]');
+        if (target) target.classList.add('active');
+      });
+    });
+  });
+}
+function initFilters() {
+  document.querySelectorAll('.filter-bar').forEach(bar => {
+    const targetCls = bar.dataset.target;
+    const container = document.querySelector('.' + targetCls);
+    if (!container) return;
+    const state = {source: '', stage: ''};
+    function applyFilter() {
+      const cards = container.querySelectorAll('.lead-card');
+      let visible = 0;
+      cards.forEach(c => {
+        const srcOK = !state.source || c.dataset.source === state.source;
+        const stgOK = !state.stage || c.dataset.stage === state.stage;
+        if (srcOK && stgOK) {
+          c.classList.remove('filter-hidden');
+          if (!c.classList.contains('hidden')) visible++;
+        } else {
+          c.classList.add('filter-hidden');
+        }
+      });
+      const cnt = bar.querySelector('.visible-count');
+      if (cnt) cnt.innerText = visible;
+    }
+    bar.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const type = chip.dataset.filterType;
+        const value = chip.dataset.filterValue;
+        // Toggle within the filter group
+        bar.querySelectorAll('.filter-chip[data-filter-type="' + type + '"]').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        state[type] = value;
+        applyFilter();
+      });
+    });
+    applyFilter();
+  });
 }
 function switchTab(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
