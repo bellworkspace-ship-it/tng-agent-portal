@@ -483,8 +483,46 @@ function updateProgressBadge() {
   badge.innerText = doneToday + ' done today';
 }
 
+// ---------- THEME (light / dark toggle) ----------
+function getStoredTheme() {
+  try { return localStorage.getItem('tng-theme'); } catch (e) { return null; }
+}
+function storeTheme(t) {
+  try { localStorage.setItem('tng-theme', t); } catch (e) {}
+}
+function applyTheme(theme) {
+  const t = (theme === 'light') ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    const isLight = (t === 'light');
+    btn.querySelector('.tt-icon').textContent = isLight ? '\u263C' : '\u263E'; // sun / crescent moon
+    btn.querySelector('.tt-label').textContent = isLight ? 'Light' : 'Dark';
+    btn.setAttribute('aria-label', 'Switch to ' + (isLight ? 'dark' : 'light') + ' theme');
+    btn.setAttribute('title', 'Switch to ' + (isLight ? 'dark' : 'light') + ' theme');
+  }
+}
+function initTheme() {
+  const stored = getStoredTheme();
+  let theme = stored;
+  if (!theme) {
+    theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  }
+  applyTheme(theme);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = (cur === 'light') ? 'dark' : 'light';
+      applyTheme(next);
+      storeTheme(next);
+    });
+  }
+}
+
 // ---------- BOOTSTRAP ----------
 window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   if (window.PAYLOAD) {
     setupLock();
   } else {
