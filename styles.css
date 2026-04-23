@@ -154,6 +154,46 @@ header.app-header .gen { color: var(--text-faint); font-size: 12px; }
 .alert-banner .title { font-weight: 700; color: var(--fire); }
 .deal-row { display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg-elevated); border-radius: 6px; margin-bottom: 6px; }
 .deal-row .price { color: var(--teal-bright); font-weight: 600; }
+
+/* Tab badges (count pills on tabs) */
+.tab-badge { background: var(--teal-deep); color: var(--text); border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; }
+.tab-badge.alert { background: var(--bad); }
+
+/* Active Listings pane */
+.listings-header { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.listings-kpi { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; min-width: 130px; }
+.listings-kpi .num { font-family: 'Montserrat', sans-serif; font-size: 24px; font-weight: 700; color: var(--teal-bright); line-height: 1.1; }
+.listings-kpi .lbl { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+.listings-kpi.alert .num { color: var(--bad); }
+.listings-kpi.ok .num { color: var(--good); }
+
+.listings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+.listing-card { background: var(--bg-elevated); border: 1px solid var(--border); border-left: 4px solid var(--teal-bright); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.listing-card.overdue { border-left-color: var(--bad); background: linear-gradient(90deg, rgba(255,95,111,0.08), var(--bg-elevated) 40%); }
+.listing-card.fresh { border-left-color: var(--good); }
+.listing-card .lc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.listing-card .lc-name { font-weight: 700; font-size: 16px; font-family: 'Montserrat', sans-serif; color: var(--text); }
+.listing-card .lc-stage-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; background: var(--teal-deep); color: var(--text); }
+.listing-card .lc-stage-badge.active { background: var(--teal); }
+.listing-card .lc-stage-badge.uc { background: var(--warn); color: var(--bg); }
+.listing-card .lc-stage-badge.submit { background: var(--hot); color: var(--bg); }
+.listing-card .lc-stage-badge.agreement { background: var(--luke); color: var(--bg); }
+.listing-card .lc-meta { color: var(--text-dim); font-size: 12px; }
+.listing-card .lc-last-comm { font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.listing-card .lc-last-comm .lc-overdue, .listing-card .lc-last-comm .lc-never { color: var(--bad); font-weight: 600; }
+.listing-card .lc-last-comm .lc-fresh { color: var(--good); font-weight: 600; }
+.listing-card .lc-outreach-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text-dim); }
+.listing-card .lc-outreach-badge.ok { color: var(--good); border-color: var(--good); }
+.listing-card .lc-outreach-badge.zero { color: var(--bad); border-color: var(--bad); }
+.listing-card .uc-flag { background: rgba(255,182,86,0.15); border: 1px solid var(--warn); color: var(--warn); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; display: inline-block; align-self: flex-start; }
+.listing-card .lc-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.listing-card .lc-actions .btn { font-size: 12px; padding: 7px 11px; }
+.listing-card .lc-actions .btn.lc-primary { background: var(--teal-bright); color: var(--bg); font-weight: 700; }
+.listing-card .lc-actions .btn.lc-primary:hover { background: var(--teal); color: var(--text); }
+.listing-card .lc-actions .btn.lc-call { background: var(--teal); }
+.listing-card .lc-actions .btn.lc-text { background: var(--teal-deep); }
+.listing-card .lc-actions .btn.lc-fub { background: #5b3bff; }
+.listing-card .lc-actions .btn.lc-fub:hover { background: #6f54ff; }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--teal); color: var(--text); padding: 10px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 6px 24px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.2s; z-index: 1000; }
 .toast.show { opacity: 1; }
 
