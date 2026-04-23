@@ -70,8 +70,8 @@ header.app-header .who .sub, header.app-header .gen { opacity: 0.8; }
 header.app-header img.logo { height: 38px; }
 header.app-header .who { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
 header.app-header .who h1 { font-size: 20px; }
-header.app-header .who .sub { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
-header.app-header .gen { color: var(--text-faint); font-size: 12px; }
+header.app-header .who .sub { font-size: 13px; margin-top: 2px; }
+header.app-header .gen { font-size: 12px; }
 
 .section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
 .section h2 { font-size: 17px; margin-bottom: 4px; color: var(--text); display: flex; align-items: center; gap: 10px; }
