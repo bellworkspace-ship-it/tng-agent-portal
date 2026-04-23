@@ -104,12 +104,15 @@ function initListingActions() {
   document.querySelectorAll('[data-act]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
-      const card = btn.closest('.listing-card');
+      // Buttons live on both listing cards (Active Listings tab) and lead
+      // cards (Action Queue, Hot, Online, Fello, Cold 30+, Referrals, Pond).
+      const card = btn.closest('.listing-card, .lead-card');
       openListingModal({
         kind: btn.dataset.act,
         leadId: btn.dataset.leadId,
         leadName: btn.dataset.leadName,
         currentStage: btn.dataset.currentStage || '',
+        phone: btn.dataset.phone || '',
         card: card,
       });
     });
@@ -233,16 +236,21 @@ async function submitCallForm(e) {
   const outcomeLbl  = OUTCOME_LABEL[outcomeKey]     || outcomeKey;
   btn.classList.add('saving'); btn.innerText = 'Logging\u2026';
   try {
+    const callBody = {
+      personId:   parseInt(ctx.leadId, 10),
+      note:       note || ('Call: ' + outcomeLbl),
+      isIncoming: direction === 'Inbound',
+      outcome:    outcomeName,
+      duration:   0,
+    };
+    // FUB requires `phone` on POST /v1/calls. If we have one on the card,
+    // pass it through — otherwise the worker will look it up from the
+    // person record before forwarding.
+    if (ctx.phone) callBody.phone = ctx.phone;
     const resp = await fetch(window.TNG_WORKER.url + '/calls', {
       method: 'POST',
       headers: workerHeaders(),
-      body: JSON.stringify({
-        personId:   parseInt(ctx.leadId, 10),
-        note:       note || ('Call: ' + outcomeLbl),
-        isIncoming: direction === 'Inbound',
-        outcome:    outcomeName,
-        duration:   0,
-      }),
+      body: JSON.stringify(callBody),
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status + ' \u2014 ' + (await resp.text()));
     await resp.json().catch(() => null);
