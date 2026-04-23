@@ -77,8 +77,67 @@ function initDashboard() {
   initFilters();
   initCheckboxes();
   initListingActions();
+  initTextLogging();
   const showBtn = document.getElementById('show-completed');
   if (showBtn) showBtn.addEventListener('click', toggleCompleted);
+}
+
+// ---------- TEXT AUTO-LOGGING ----------
+// When an agent taps "Send text" on a card, the sms: link opens their phone's
+// SMS app normally. In parallel, we fire a background POST to the worker's
+// /texts endpoint so FUB records an outbound text on the lead's timeline.
+// Uses keepalive:true so the request survives the tab losing focus when the
+// SMS app takes over. Best-effort — we don't block or wait.
+function initTextLogging() {
+  if (!window.TNG_WORKER || !window.TNG_WORKER.url) return;  // worker disabled
+  document.querySelectorAll('a[data-log-text="1"]').forEach(a => {
+    a.addEventListener('click', () => {
+      // Don't preventDefault — sms: still needs to navigate.
+      const leadId = a.dataset.leadId;
+      const toNumber = a.dataset.toNumber || '';
+      const message = a.dataset.message || '';
+      const statusEl = a.closest('.ch-pane')?.querySelector('[data-log-status]');
+      if (!leadId || !message) return;
+      try {
+        fetch(window.TNG_WORKER.url + '/texts', {
+          method: 'POST',
+          keepalive: true,
+          headers: workerHeaders(),
+          body: JSON.stringify({
+            personId: parseInt(leadId, 10),
+            toNumber: toNumber,
+            message: message,
+            isIncoming: false,
+            sentAt: new Date().toISOString(),
+          }),
+        }).then(async resp => {
+          if (!statusEl) return;
+          if (resp.ok) {
+            statusEl.innerText = '\u2713 Text logged to FUB';
+            statusEl.className = 'log-status ok';
+          } else {
+            const txt = await resp.text().catch(() => '');
+            statusEl.innerText = 'Log failed (' + resp.status + ')' + (txt ? ' \u2014 ' + txt.slice(0, 120) : '');
+            statusEl.className = 'log-status err';
+          }
+        }).catch(err => {
+          if (statusEl) {
+            statusEl.innerText = 'Log failed \u2014 ' + (err && err.message || err);
+            statusEl.className = 'log-status err';
+          }
+        });
+        if (statusEl) {
+          statusEl.innerText = 'Logging to FUB\u2026';
+          statusEl.className = 'log-status pending';
+        }
+      } catch (e) {
+        if (statusEl) {
+          statusEl.innerText = 'Log failed \u2014 ' + (e && e.message || e);
+          statusEl.className = 'log-status err';
+        }
+      }
+    });
+  });
 }
 
 // ---------- LISTING INLINE WRITE-BACK (Add Note / Log Call / Change Stage) ----------
