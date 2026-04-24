@@ -78,8 +78,201 @@ function initDashboard() {
   initCheckboxes();
   initListingActions();
   initTextLogging();
+  initAllLeads();
   const showBtn = document.getElementById('show-completed');
   if (showBtn) showBtn.addEventListener('click', toggleCompleted);
+}
+
+// ---------- ALL LEADS (full-book search) ----------
+function initAllLeads() {
+  const dataEl = document.getElementById('all-leads-data');
+  const listEl = document.getElementById('all-leads-list');
+  const searchEl = document.getElementById('all-leads-search');
+  const pagerEl = document.getElementById('all-leads-pagination');
+  const countEl = document.getElementById('all-leads-count');
+  const pageInfoEl = document.getElementById('all-leads-page-info');
+  if (!dataEl || !listEl || !searchEl || !pagerEl) return;
+  let all;
+  try { all = JSON.parse(dataEl.textContent || '[]'); } catch (e) { all = []; }
+  if (!all.length) return;
+
+  const PAGE_SIZE = 50;
+  let state = { q: '', stage: '', tier: '', source: '', page: 1 };
+
+  function stageClass(stage) {
+    const s = (stage || '').toLowerCase();
+    if (!s || s === 'lead' || s === 'attempted contact') return '';
+    if (s === 'under contract' || s === 'pending' || s === 'submitting offers') return 'uc';
+    if (s === 'trash' || s === 'nurture' || s === 'past client') return 'inactive';
+    return 'engaged';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  function highlightFirstName(fullName, firstNameLower, query) {
+    if (!query) return escapeHtml(fullName);
+    const lower = fullName.toLowerCase();
+    const idx = lower.indexOf(query);
+    if (idx < 0) return escapeHtml(fullName);
+    return escapeHtml(fullName.slice(0, idx)) +
+      '<span class="fn-hl">' + escapeHtml(fullName.slice(idx, idx + query.length)) + '</span>' +
+      escapeHtml(fullName.slice(idx + query.length));
+  }
+
+  function scoreMatch(lead, qLower) {
+    if (!qLower) return 1;
+    const fn = lead.fn || '';
+    const name = (lead.n || '').toLowerCase();
+    const email = (lead.e || '').toLowerCase();
+    const phone = (lead.p || '').replace(/\D/g, '');
+    const qDigits = qLower.replace(/\D/g, '');
+    // Strongest: first-name startsWith — that's the "type J, see Jamie first" use case
+    if (fn.startsWith(qLower)) return 100;
+    // Second: any name token startsWith
+    if (name.split(/\s+/).some(t => t.startsWith(qLower))) return 80;
+    // Third: substring in full name
+    if (name.includes(qLower)) return 50;
+    // Fourth: email prefix
+    if (email.startsWith(qLower)) return 40;
+    if (email.includes(qLower)) return 25;
+    // Fifth: phone digits
+    if (qDigits && phone && phone.includes(qDigits)) return 30;
+    return 0;
+  }
+
+  function filter() {
+    const q = state.q.trim().toLowerCase();
+    const matches = [];
+    for (const r of all) {
+      if (state.stage && r.s !== state.stage) continue;
+      if (state.tier && r.ht !== state.tier) continue;
+      if (state.source && r.src !== state.source) continue;
+      const score = scoreMatch(r, q);
+      if (q && score === 0) continue;
+      matches.push({ r, score });
+    }
+    if (q) {
+      matches.sort((a, b) => b.score - a.score || a.r.n.localeCompare(b.r.n));
+    } else {
+      // Default order when no search: hottest first, then newest contact
+      matches.sort((a, b) => (b.r.hs || 0) - (a.r.hs || 0) ||
+        ((a.r.dsc == null ? 9999 : a.r.dsc) - (b.r.dsc == null ? 9999 : b.r.dsc)));
+    }
+    return matches.map(m => m.r);
+  }
+
+  function render() {
+    const filtered = filter();
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (state.page > totalPages) state.page = totalPages;
+    if (state.page < 1) state.page = 1;
+    const startIdx = (state.page - 1) * PAGE_SIZE;
+    const pageRows = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+
+    countEl.textContent = total === all.length
+      ? 'Showing ' + total.toLocaleString() + ' leads'
+      : total.toLocaleString() + ' of ' + all.length.toLocaleString() + ' leads match';
+    pageInfoEl.textContent = total > PAGE_SIZE ? 'Page ' + state.page + ' of ' + totalPages : '';
+
+    const q = state.q.trim().toLowerCase();
+    const rows = pageRows.map(r => {
+      const sc = stageClass(r.s);
+      const stagePill = r.s ? '<span class="stage-pill ' + sc + '">' + escapeHtml(r.s) + '</span>' : '';
+      const phoneLink = r.p ? '<a href="tel:' + escapeHtml(r.p) + '" title="Call">' + escapeHtml(r.p) + '</a>' : '';
+      const emailLink = r.e ? '<a href="mailto:' + escapeHtml(r.e) + '" title="Email">' + escapeHtml(r.e) + '</a>' : '';
+      const actions = [];
+      if (r.p) actions.push('<a href="tel:' + escapeHtml(r.p) + '" title="Call">📞</a>');
+      if (r.p) actions.push('<a href="sms:' + escapeHtml(r.p) + '" title="Text">💬</a>');
+      if (r.e) actions.push('<a href="mailto:' + escapeHtml(r.e) + '" title="Email">✉️</a>');
+      actions.push('<a href="' + escapeHtml(r.u) + '" target="_blank" rel="noopener" title="Open in FUB">↗</a>');
+      const daysStr = r.dsc == null ? 'no contact' : (r.dsc === 0 ? 'today' : r.dsc + 'd ago');
+      const hotStr = r.he || '';
+      const dncFlag = r.dnc ? '<span class="lead-dnc">DNC</span>' : '';
+      return (
+        '<div class="all-lead-row">'
+        + '<a class="lead-name" href="' + escapeHtml(r.u) + '" target="_blank" rel="noopener">' + highlightFirstName(r.n, r.fn, q) + dncFlag + '</a>'
+        + '<div class="lead-contact">' + phoneLink + emailLink + (!r.p && !r.e ? '<span style="font-style:italic;opacity:0.6">no contact info</span>' : '') + '</div>'
+        + '<div class="lead-stage">' + stagePill + (r.src ? ' <span class="tag">' + escapeHtml(r.src) + '</span>' : '') + '</div>'
+        + '<div class="lead-hot">' + hotStr + '</div>'
+        + '<div class="lead-days">' + daysStr + '</div>'
+        + '<div class="lead-actions">' + actions.join('') + '</div>'
+        + '</div>'
+      );
+    });
+
+    listEl.innerHTML = rows.length
+      ? rows.join('')
+      : '<div class="empty">No leads match — clear filters or try a different name.</div>';
+
+    // Pagination controls
+    if (total <= PAGE_SIZE) {
+      pagerEl.innerHTML = '';
+    } else {
+      const btns = [];
+      btns.push('<button ' + (state.page === 1 ? 'disabled' : '') + ' data-page="prev">← Prev</button>');
+      // Compact page numbers: first, last, ±2 of current
+      const wanted = new Set([1, totalPages, state.page, state.page - 1, state.page + 1, state.page - 2, state.page + 2]);
+      const nums = [...wanted].filter(n => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+      let prev = 0;
+      for (const n of nums) {
+        if (n - prev > 1) btns.push('<span style="color:var(--text-faint)">…</span>');
+        btns.push('<button ' + (n === state.page ? 'class="active"' : '') + ' data-page="' + n + '">' + n + '</button>');
+        prev = n;
+      }
+      btns.push('<button ' + (state.page === totalPages ? 'disabled' : '') + ' data-page="next">Next →</button>');
+      pagerEl.innerHTML = btns.join(' ');
+    }
+  }
+
+  // Debounced search input
+  let searchTimer = null;
+  searchEl.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.q = searchEl.value;
+      state.page = 1;
+      render();
+    }, 80);
+  });
+
+  // Filter chips — a tab-wide listener would also work, but scoping here keeps
+  // the global filter bar (for the Today/Hot tabs) untouched.
+  document.querySelectorAll('#pane-all-leads .lead-filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const kind = chip.dataset.kind;
+      const value = chip.dataset.value;
+      state[kind] = value;
+      state.page = 1;
+      // Toggle "active" on sibling chips of the same kind
+      document.querySelectorAll('#pane-all-leads .lead-filter-chip[data-kind="' + kind + '"]').forEach(c => {
+        c.classList.toggle('active', c.dataset.value === value);
+      });
+      render();
+    });
+  });
+
+  // Pagination clicks
+  pagerEl.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-page]');
+    if (!btn) return;
+    const val = btn.dataset.page;
+    if (val === 'prev') state.page -= 1;
+    else if (val === 'next') state.page += 1;
+    else state.page = parseInt(val, 10);
+    render();
+    // Scroll to top of list so the agent can see the new rows
+    listEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+
+  // Keyboard shortcut: when the All Leads tab becomes active, focus the search
+  document.querySelectorAll('.tab[data-tab="all-leads"]').forEach(t => {
+    t.addEventListener('click', () => setTimeout(() => searchEl.focus(), 50));
+  });
+
+  render();
 }
 
 // ---------- TEXT AUTO-LOGGING ----------
