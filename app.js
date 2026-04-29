@@ -333,6 +333,8 @@ function initTextLogging() {
           let resp = await tryTexts();
           if (resp.ok) {
             const data = await resp.json().catch(() => ({}));
+            // loggedAs is one of: "communication" (new worker, /v1/communications),
+            // "textMessage" (transitional, never shipped), "note" (fallback).
             const where = data && data.loggedAs === 'note'
               ? '\u2713 Text logged to FUB (as note)'
               : '\u2713 Text logged to FUB';
