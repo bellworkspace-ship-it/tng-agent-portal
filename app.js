@@ -306,9 +306,11 @@ function initTextLogging() {
         }).then(async resp => {
           if (!statusEl) return;
           if (resp.ok) {
-            // Worker returns {loggedAs:"call"} — texts are logged as outbound
-            // calls with outcome "Text Sent" so they roll up into call KPIs.
-            statusEl.innerText = '\u2713 Text logged to FUB (as call)';
+            // Worker returns {loggedAs:"textMessage"} (or "note" on fallback).
+            const data = await resp.json().catch(() => ({}));
+            statusEl.innerText = data && data.loggedAs === 'note'
+              ? '\u2713 Text logged to FUB (as note)'
+              : '\u2713 Text logged to FUB';
             statusEl.className = 'log-status ok';
           } else {
             const txt = await resp.text().catch(() => '');
