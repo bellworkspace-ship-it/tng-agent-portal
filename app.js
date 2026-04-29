@@ -291,48 +291,67 @@ function initTextLogging() {
       const message = a.dataset.message || '';
       const statusEl = a.closest('.ch-pane')?.querySelector('[data-log-status]');
       if (!leadId || !message) return;
-      try {
-        fetch(window.TNG_WORKER.url + '/texts', {
-          method: 'POST',
-          keepalive: true,
-          headers: workerHeaders(),
-          body: JSON.stringify({
-            personId: parseInt(leadId, 10),
-            toNumber: toNumber,
-            message: message,
-            isIncoming: false,
-            sentAt: new Date().toISOString(),
-          }),
-        }).then(async resp => {
-          if (!statusEl) return;
+
+      const setStatus = (txt, cls) => {
+        if (!statusEl) return;
+        statusEl.innerText = txt;
+        statusEl.className = 'log-status ' + cls;
+      };
+      setStatus('Logging to FUB\u2026', 'pending');
+
+      // Try /texts first (works once the worker is redeployed with the
+      // /v1/textMessages handler). If the worker is still on the old code
+      // path it returns 400 with outcome-validation noise — fall back to
+      // /notes so the outreach is at least captured on the lead's timeline.
+      const tryTexts = () => fetch(window.TNG_WORKER.url + '/texts', {
+        method: 'POST',
+        keepalive: true,
+        headers: workerHeaders(),
+        body: JSON.stringify({
+          personId: parseInt(leadId, 10),
+          toNumber: toNumber,
+          message: message,
+          isIncoming: false,
+          sentAt: new Date().toISOString(),
+        }),
+      });
+
+      const tryNotesFallback = () => fetch(window.TNG_WORKER.url + '/notes', {
+        method: 'POST',
+        keepalive: true,
+        headers: workerHeaders(),
+        body: JSON.stringify({
+          personId: parseInt(leadId, 10),
+          subject: 'Outbound text',
+          body: (toNumber ? '\ud83d\udcf1 Outbound text to ' + toNumber + '\n\n' : '\ud83d\udcf1 Outbound text\n\n') + message,
+          isHtml: false,
+        }),
+      });
+
+      (async () => {
+        try {
+          let resp = await tryTexts();
           if (resp.ok) {
-            // Worker returns {loggedAs:"textMessage"} (or "note" on fallback).
             const data = await resp.json().catch(() => ({}));
-            statusEl.innerText = data && data.loggedAs === 'note'
+            const where = data && data.loggedAs === 'note'
               ? '\u2713 Text logged to FUB (as note)'
               : '\u2713 Text logged to FUB';
-            statusEl.className = 'log-status ok';
-          } else {
-            const txt = await resp.text().catch(() => '');
-            statusEl.innerText = 'Log failed (' + resp.status + ')' + (txt ? ' \u2014 ' + txt.slice(0, 120) : '');
-            statusEl.className = 'log-status err';
+            setStatus(where, 'ok');
+            return;
           }
-        }).catch(err => {
-          if (statusEl) {
-            statusEl.innerText = 'Log failed \u2014 ' + (err && err.message || err);
-            statusEl.className = 'log-status err';
+          // Old worker path: any 4xx/5xx — quietly retry as a note so the
+          // agent doesn't lose the outreach record.
+          const noteResp = await tryNotesFallback();
+          if (noteResp.ok) {
+            setStatus('\u2713 Text logged to FUB (as note)', 'ok');
+            return;
           }
-        });
-        if (statusEl) {
-          statusEl.innerText = 'Logging to FUB\u2026';
-          statusEl.className = 'log-status pending';
+          const txt = await noteResp.text().catch(() => '');
+          setStatus('Log failed (' + noteResp.status + ')' + (txt ? ' \u2014 ' + txt.slice(0, 120) : ''), 'err');
+        } catch (err) {
+          setStatus('Log failed \u2014 ' + (err && err.message || err), 'err');
         }
-      } catch (e) {
-        if (statusEl) {
-          statusEl.innerText = 'Log failed \u2014 ' + (e && e.message || e);
-          statusEl.className = 'log-status err';
-        }
-      }
+      })();
     });
   });
 }
